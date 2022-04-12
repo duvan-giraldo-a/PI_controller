@@ -17,9 +17,10 @@
 // ----- Definition -------------
 #define uart_task_PRIORITY      configMAX_PRIORITIES -1
 #define Delay
-#define rpm_max 17000
+#define rpm_max 10000
 uint8_t counter = 0;
 float rpm = 0;
+float set_point = 0;
 
 SemaphoreHandle_t xSemaphore;
 // Handle Task
@@ -27,6 +28,7 @@ TaskHandle_t uartHandler;
 TaskHandle_t UpdatePI;
 TaskHandle_t EncoderValue;
 TaskHandle_t SendVelocity;
+TaskHandle_t DecimalTask;
 
 void on_uart(){
     irq_set_enabled(UART0_IRQ, false);
@@ -47,22 +49,24 @@ void vEncoderValue(void *pvParameters){
 }
 
 void vUpdatePI(void *pvParameters){
-    int16_t error = 0;
-    int16_t error_ant = 0;
-    int acc = 0;
-    int acc_ant = 0;
-    float q1 = 0.188;
-    float q2 = -0.17;
+    float error = 0;
+    float error_ant = 0;
+    float acc = 0;
+    float acc_ant = 0;
+    float q1 = 0.0188;
+    float q2 = -0.017;
 
     while (1){   
         vTaskDelay(20);        
         if(mode == 1) {
             xSemaphoreTake(xSemaphore, portMAX_DELAY);
-            uint16_t set_point = (pwmDutty*rpm_max)/100;
+            set_point = (pwmDutty*rpm_max)/100;
             error_ant = error;
             error = set_point - rpm;
-            printf("Error: %u \n", error);
-            acc = ((q1*error)+(q1*error_ant)+(256*acc_ant))/256;
+            acc = ((q1*256*error)+(q2*256*error_ant)+(256*acc_ant))/256;
+            printf("Set point %1.f \n", set_point);
+            printf("RPM %1.f \n", rpm);
+            printf("Error %1.f \n", error);
             xSemaphoreGive(xSemaphore);
             if(acc>100) acc = 100;
             if(acc<0) acc = 0;
@@ -77,10 +81,9 @@ void vUpdatePI(void *pvParameters){
 void vSendVelocity(void *pvParameters){
     while(1){
         vTaskDelay(500);
-        char Send[4] = "Hola";
-        for (int i = 0; i < 4; i++){
-            on_uart_tx_Char(Send[i]);
-        }
+        xSemaphoreTake(xSemaphore, portMAX_DELAY);
+        setData(set_point, rpm);
+        xSemaphoreGive(xSemaphore);
     }
 }
 
@@ -92,6 +95,15 @@ void uart_task(void *pvParameters){
         getData();
         irq_set_enabled(UART0_IRQ, true);
         vTaskSuspend(NULL);
+    }
+}
+
+void decimalTask(void *pvParameters){
+    while(1){
+        vTaskDelay(600);
+        if(flagDecimals){
+            doDecimalExtraction();
+        }
     }
 }
 int main() {
@@ -112,7 +124,7 @@ int main() {
     // --------- Create Task -----------------------
 
     // Uart Task
-    if(xTaskCreate(uart_task, "uart_task", configMINIMAL_STACK_SIZE + 100, NULL, uart_task_PRIORITY, &uartHandler) != pdPASS){
+    if(xTaskCreate(uart_task, "uart_task", configMINIMAL_STACK_SIZE + 1000, NULL, uart_task_PRIORITY, &uartHandler) != pdPASS){
         printf("%s uart_task created faild!\n");
         while (1);
     }
@@ -134,6 +146,12 @@ int main() {
         printf("%s velocity_task created faild!\n");
         while (1);
     }
+    if(xTaskCreate(decimalTask, "Decimal_task", configMINIMAL_STACK_SIZE + 100, NULL, 5, &DecimalTask) != pdPASS){
+        printf("%s Decimal created faild!\n");
+        while (1);
+    }
+
+    
 
     if(xSemaphore == NULL){
         printf("%s xSemaphore_productor created faild!\n");

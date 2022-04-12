@@ -22,7 +22,12 @@ uint8_t Getptr = 0;
 uint8_t Putptr = 0;
 uint8_t fifo[TamFIFO];
 uint8_t mode = 0;
-
+float acum = 0;
+bool flagDecimals = false;
+int decimal = 0;
+bool flag_decimal = false;
+char bufferDecimals[20] = "--------------------";
+int counterDecimals = 0;
 //Inicialización UART0 (Buadios(bits/seg), Puertos GPIO como TX/RX, FIFO desactivada, Interrupción RX unicamente)
 void uartInit(){
     uart_init(UART_ID, BOUD_RATE);
@@ -51,44 +56,144 @@ void on_uart_tx_Char(char msg){
 /* Máquina de estados empleada para la recepción de datos enviados por bluetooth desde el aplicativo Móvil */
 void getData(){
     switch (state){
-    /* Estado 0: verificación del caracter inicial $ de la trama*/
-    case 0:
-        if(caracter == '0'){
-            state = 1;
-            mode = 0;
-        }else if(caracter == '1'){
-            printf("hol");
-            state = 2;
-            mode = 1;
-        } else {
+        case 0:
+            if(caracter == '0'){
+                state = 1;
+                mode = 0;
+            } else if (caracter == '1'){
+                state = 2;
+                mode = 1;
+            } else if (caracter == '2'){// Proportional constant
+                state = 3;
+            } else if (caracter == '3'){// Integral constant
+                state = 4;
+            } else {
+                state = 0;
+            }
+            break;
+        /* Estado 1: verificación del tipo de solicitud (Monitoreo de perifericos, control de perifericos) */
+        case 1:
+            pwmDutty = caracter;
             state = 0;
-        }
-        break;
-    /* Estado 1: verificación del tipo de solicitud (Monitoreo de perifericos, control de perifericos) */
-    case 1:
-        pwmDutty = caracter;
-        state = 0;
-        break;
-    /* Estado 2: captura de la orden en caso de que la solicitud sea de control */
-    case 2:
-            printf("hol1");
-        pwmDutty = caracter;
-        state = 0;
-        break;
-    default:
-        break;
+            break;
+        /* Estado 2: captura de la orden en caso de que la solicitud sea de control */
+        case 2:
+            pwmDutty = caracter;
+            state = 0;
+            break;
+        case 3:
+            if(!flagDecimals){
+                bufferDecimals[counterDecimals] = caracter;
+                counterDecimals++;
+            }
+            if (caracter == '$'){
+                flagDecimals = true;
+            }
+            break;
+        case 4:
+            
+            if(!flagDecimals){
+                bufferDecimals[counterDecimals] = caracter;
+                counterDecimals++;
+            }
+            
+            if (caracter == '$'){
+                flagDecimals = true;
+            }
+            break;
+        default:
+            break;
     }
 }
 
-/* Método usado para codificar y transmitir la información usando la interfaz UART del MCU a la cual está conectado
-   el módulo bluetooth. ($,periférico,información sensada,caracter de verificación (($+canal+data)%128)) */
-void setData(uint8_t ch, uint16_t data){
-    char Send[4];
-    Send[0] = '$';
-    Send[1] = 0x00 | ch;
-    Send[2] = (uint8_t)(data * 100 / 4095);
-    Send[3] = (Send[0]+Send[1]+Send[2]) % 128;
-    for (int i = 0; i < 4; i++){
+void doDecimalExtraction(){
+    calculateDecimalInput();
+    float result = (acum/(potencia(10, decimal)));
+    printf("Valor resultado %f \n", result);
+    state = 0;
+    cleanVector();
+    acum = 0;
+    decimal = 0;
+    counterDecimals = 0;
+    flag_decimal = false;
+    flagDecimals = false;
+}
+
+void cleanVector(){
+    for(int i=0; i<20; i++) {
+        bufferDecimals[i] = '-';
+    }
+}
+
+void calculateDecimalInput(){
+    float temporalVar = 0;
+    uint8_t counterPower = 0;
+    float potenciaTemporal = 0;
+    
+    while (counterDecimals>0){
+        counterDecimals--;
+        if (bufferDecimals[counterDecimals] != '.' && bufferDecimals[counterDecimals] != '$') {
+            temporalVar = bufferDecimals[counterDecimals]&0x0F;
+            potenciaTemporal = potencia(10,counterPower);
+            acum = acum + potenciaTemporal*temporalVar; 
+            if (!flag_decimal){
+                decimal++;
+            }
+            counterPower++;
+        }
+        else if(bufferDecimals[counterDecimals] == '.'){
+            flag_decimal = true;
+        }
+    }
+    counterDecimals = 0;
+}
+
+float potencia(int numero, int potencia){
+    int resultado = numero;
+    if (potencia == 0){
+        resultado = 1;
+    }
+    while (potencia > 1)
+    {
+        resultado = resultado * numero;
+        potencia--;
+    }
+    return resultado;
+}
+
+void setData(float setPoint, float rpm){
+    char Send[12];
+    Send[0] = 's';
+    uint32_t x,y;
+    x = setPoint;
+    for(int i=1;i<=5;i++)
+    {
+        if (i == 1)
+        {
+            y=x%10;
+            Send[i] = y+0x30;
+        } else {
+            y = (x / 10)% 10;
+            Send[i] = y+0x30;
+            x = x / 10;
+        }
+    }
+    Send[6] = 'r';
+    x = rpm;
+    for(int i=1;i<=5;i++)
+    {
+        if (i == 1)
+        {
+            y=x%10;
+            Send[i+6] = y+0x30;
+        } else {
+            y = (x / 10)% 10; 
+            Send[i+6] = y+0x30;
+            x = x / 10;
+        }
+    }
+
+    for (int i = 0; i < 12; i++){
         on_uart_tx_Char(Send[i]);
     }
 }

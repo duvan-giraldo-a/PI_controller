@@ -20,15 +20,20 @@ extern uint8_t buffer[TamBUFFER];
 extern bool emptyBuffer;
 extern uint8_t Getptr;
 extern uint8_t Putptr;
+extern char bufferDecimals[20];
 extern uint8_t mode;
+extern bool flagDecimals;
 
 void uartInit(void);
 void on_uart(void);
 void on_uart_tx_String(char *msg);
 void on_uart_tx_Char(char msg);
 void getData();
-void setData(uint8_t ch, uint16_t data);
-
+void setData(float setPoint, float rpm);
+float potencia(int numero, int potencia);
+void calculateDecimalInput(void);
+void cleanVector(void);
+void doDecimalExtraction(void);
 
 
 #endif
