@@ -52,7 +52,7 @@ uint16_t measure_duty_cycle(uint gpio) {
     gpio_set_function(gpio, GPIO_FUNC_PWM);
     
     pwm_set_enabled(slice_num, true);
-    sleep_ms(15);
+    sleep_ms(95);
     pwm_set_enabled(slice_num, false);
     
     uint16_t counter = (uint16_t) pwm_get_counter(slice_num);

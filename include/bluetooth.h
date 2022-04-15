@@ -24,6 +24,7 @@ extern char bufferDecimals[20];
 extern uint8_t mode;
 extern bool flagDecimals;
 extern bool flagSendData;
+extern bool constantIdentifier;
 
 void uartInit(void);
 void on_uart(void);
@@ -34,7 +35,7 @@ void setData(float setPoint, float rpm);
 float potencia(int numero, int potencia);
 void calculateDecimalInput(void);
 void cleanVector(void);
-void doDecimalExtraction(void);
+float doDecimalExtraction(void);
 
 
 #endif

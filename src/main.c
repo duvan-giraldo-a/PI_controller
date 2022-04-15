@@ -22,6 +22,12 @@ uint8_t counter = 0;
 float rpm = 0;
 float set_point = 0;
 
+float q1 = 0.0188;
+float q2 = -0.017;
+float Ti = 0.223;
+float Kc = 0.18;
+float T = 0.002;
+
 SemaphoreHandle_t xSemaphore;
 // Handle Task
 TaskHandle_t uartHandler;
@@ -40,10 +46,10 @@ void on_uart(){
 
 void vEncoderValue(void *pvParameters){
     while(1){
-        vTaskDelay(20);
+        vTaskDelay(100);
         xSemaphoreTake(xSemaphore, portMAX_DELAY);
-        rpm = ((60*measure_duty_cycle(MEASURE_PIN))/(15*0.001*10));
-        printf("velocidad (rpm): %1.f \n", rpm);
+        rpm = ((60*measure_duty_cycle(MEASURE_PIN))/(95*0.001*10));
+        // printf("velocidad (rpm): %1.f \n", rpm);
         xSemaphoreGive(xSemaphore);
     }
 }
@@ -53,20 +59,19 @@ void vUpdatePI(void *pvParameters){
     float error_ant = 0;
     float acc = 0;
     float acc_ant = 0;
-    float q1 = 0.0188;
-    float q2 = -0.017;
+    
 
     while (1){   
-        vTaskDelay(20);        
+        vTaskDelay(100);        
         if(mode == 1) {
             xSemaphoreTake(xSemaphore, portMAX_DELAY);
             set_point = (pwmDutty*rpm_max)/100;
             error_ant = error;
             error = set_point - rpm;
             acc = ((q1*256*error)+(q2*256*error_ant)+(256*acc_ant))/256;
-            printf("Set point %1.f \n", set_point);
-            printf("RPM %1.f \n", rpm);
-            printf("Error %1.f \n", error);
+            // printf("Set point %1.f \n", set_point);
+            // printf("RPM %1.f \n", rpm);
+            // printf("Error %1.f \n", error);
             xSemaphoreGive(xSemaphore);
             if(acc>100) acc = 100;
             if(acc<0) acc = 0;
@@ -104,7 +109,16 @@ void decimalTask(void *pvParameters){
     while(1){
         vTaskDelay(600);
         if(flagDecimals){
-            doDecimalExtraction();
+            float constantToChange = doDecimalExtraction();
+            if(constantIdentifier){
+                Ti = constantToChange;
+                printf("Ti %f \n", Ti);
+            } else {
+                Kc = constantToChange; 
+                printf("Kc %f \n", Kc);   
+            }
+            q1 = (Kc)*(1+(T/(2*Ti)));
+            q2 = (-1)*(Kc)*(1-(T/(2*Ti)));
         }
     }
 }

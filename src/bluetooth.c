@@ -29,6 +29,8 @@ bool flag_decimal = false;
 char bufferDecimals[20] = "--------------------";
 int counterDecimals = 0;
 bool flagSendData = false;
+bool constantIdentifier = false;
+
 //Inicialización UART0 (Buadios(bits/seg), Puertos GPIO como TX/RX, FIFO desactivada, Interrupción RX unicamente)
 void uartInit(){
     uart_init(UART_ID, BOUD_RATE);
@@ -91,6 +93,7 @@ void getData(){
             }
             if (caracter == '$'){
                 flagDecimals = true;
+                constantIdentifier = false;
             }
             break;
         case 4:
@@ -102,6 +105,7 @@ void getData(){
             
             if (caracter == '$'){
                 flagDecimals = true;
+                constantIdentifier = true;
             }
             break;
         default:
@@ -109,10 +113,10 @@ void getData(){
     }
 }
 
-void doDecimalExtraction(){
+float doDecimalExtraction(){
     calculateDecimalInput();
     float result = (acum/(potencia(10, decimal)));
-    printf("Valor resultado %f \n", result);
+    // printf("result %f \n", result);
     state = 0;
     cleanVector();
     acum = 0;
@@ -120,6 +124,7 @@ void doDecimalExtraction(){
     counterDecimals = 0;
     flag_decimal = false;
     flagDecimals = false;
+    return result;
 }
 
 void cleanVector(){
