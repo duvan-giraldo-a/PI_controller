@@ -80,10 +80,12 @@ void vUpdatePI(void *pvParameters){
 
 void vSendVelocity(void *pvParameters){
     while(1){
-        vTaskDelay(500);
-        xSemaphoreTake(xSemaphore, portMAX_DELAY);
-        setData(set_point, rpm);
-        xSemaphoreGive(xSemaphore);
+        vTaskDelay(50);
+        if(flagSendData){
+            xSemaphoreTake(xSemaphore, portMAX_DELAY);
+            setData(set_point, rpm);
+            xSemaphoreGive(xSemaphore);
+        }
     }
 }
 
@@ -142,7 +144,7 @@ int main() {
     }
 
     // velocity Task
-    if(xTaskCreate(vSendVelocity, "velocity_task", configMINIMAL_STACK_SIZE + 100, NULL, 10, &SendVelocity) != pdPASS){
+    if(xTaskCreate(vSendVelocity, "velocity_task", configMINIMAL_STACK_SIZE + 100, NULL, 15, &SendVelocity) != pdPASS){
         printf("%s velocity_task created faild!\n");
         while (1);
     }

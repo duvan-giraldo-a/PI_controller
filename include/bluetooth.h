@@ -23,6 +23,7 @@ extern uint8_t Putptr;
 extern char bufferDecimals[20];
 extern uint8_t mode;
 extern bool flagDecimals;
+extern bool flagSendData;
 
 void uartInit(void);
 void on_uart(void);

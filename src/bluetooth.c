@@ -28,6 +28,7 @@ int decimal = 0;
 bool flag_decimal = false;
 char bufferDecimals[20] = "--------------------";
 int counterDecimals = 0;
+bool flagSendData = false;
 //Inicialización UART0 (Buadios(bits/seg), Puertos GPIO como TX/RX, FIFO desactivada, Interrupción RX unicamente)
 void uartInit(){
     uart_init(UART_ID, BOUD_RATE);
@@ -60,9 +61,11 @@ void getData(){
             if(caracter == '0'){
                 state = 1;
                 mode = 0;
+                flagSendData = true;
             } else if (caracter == '1'){
                 state = 2;
                 mode = 1;
+                flagSendData = true;
             } else if (caracter == '2'){// Proportional constant
                 state = 3;
             } else if (caracter == '3'){// Integral constant
